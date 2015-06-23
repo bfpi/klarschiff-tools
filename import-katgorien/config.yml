@@ -1,0 +1,11 @@
+webservice:
+  url: http://ws-mv-schul.zfinder.de/InfoServices-ws-V6_10-doc-lit-mv-schul/
+  login: nutzername
+  password: password
+  query_id: 
+  region_id: 9936140 # Rostock
+
+db:
+  connection:
+    # Parameter siehe http://deveiate.org/code/pg/PG/Connection.html#method-c-new
+    dbname: klarschiff_backend
