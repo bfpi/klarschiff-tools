@@ -61,5 +61,4 @@ text = load_from_wfs(config["wfs"])
 xml = build_xml(text)
 check_for_exception(xml)
 gml = extract_gml(xml)
-puts gml
 update_db(gml, config["db"])

@@ -37,8 +37,8 @@ SELECT DISTINCT stn, ot.id from import_adressen a INNER JOIN ortsteil ot ON ot.n
 INSERT INTO adresse(strasse_id, hausnummer, hausnummerzusatz, geom)
 SELECT
   s.id, hnr::INTEGER, adz, ST_SetSRID(ST_MakePoint(
-    REPLACE(eee, ',', '.')::FLOAT/1000 - 33000000,
-    REPLACE(nnn, ',', '.')::FLOAT/1000
+    REPLACE(eee, ',', '.')::FLOAT - 33000000,
+    REPLACE(nnn, ',', '.')::FLOAT
   ), 25833)
   FROM import_adressen a 
     INNER JOIN strasse s ON s.name = a.stn
@@ -49,8 +49,11 @@ UPDATE strasse SET geom = sub.geom FROM (
   SELECT s.id, st_makeline(a.geom) AS geom
   FROM strasse s
   INNER JOIN adresse a ON a.strasse_id = s.id
-  GROUP BY s.id
+  GROUP BY s.id, hausnummer
+  ORDER BY hausnummer
 ) sub WHERE sub.id = strasse.id;
+
+DROP TABLE IF EXISTS import_adressen;
 SQL
 
 puts `psql #{ config["database"] } <<SQL
