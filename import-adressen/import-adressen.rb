@@ -46,11 +46,14 @@ SELECT
     INNER JOIN ort o ON a.onm = o.name;
 
 UPDATE strasse SET geom = sub.geom FROM (
-  SELECT s.id, st_makeline(a.geom) AS geom
-  FROM strasse s
-  INNER JOIN adresse a ON a.strasse_id = s.id
-  GROUP BY s.id, hausnummer
-  ORDER BY hausnummer
+  SELECT sub2.id, st_makeline(sub2.geom) AS geom
+  FROM (
+    SELECT s.id, a.geom
+    FROM strasse s
+    INNER JOIN adresse a ON a.strasse_id = s.id
+    ORDER BY s.id, a.hausnummer
+  ) sub2
+  GROUP BY sub2.id
 ) sub WHERE sub.id = strasse.id;
 
 DROP TABLE IF EXISTS import_adressen;
