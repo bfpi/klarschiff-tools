@@ -81,6 +81,17 @@ class Object
   end
 end
 
+class String
+  def sanitize_ldap
+    self.gsub(/[ \-.,\/]/, '_').
+      gsub(/ä/, 'ae').gsub(/Ä/, 'Ae').
+      gsub(/ö/, 'oe').gsub(/Ö/, 'Oe').
+      gsub(/ü/, 'ue').gsub(/Ü/, 'Ue').
+      gsub(/ß/, 'ss').
+      gsub(/_{2,}/, '_')
+  end
+end
+
 class Category
   attr_accessor :session_id, :name, :type, :detail, :responsible_name, :subcategories, :anliegen
 
@@ -94,7 +105,7 @@ class Category
   end
 
   def responsible_key
-    responsible.downcase.gsub(/[ \-.,\/]/, '_').gsub(/_{2,}/, '_') if responsible
+    responsible.downcase.sanitize_ldap if responsible
   end
 end
 
@@ -209,7 +220,8 @@ begin
       end
     end
   end
-  puts "Required groups in ldap:\n#{ groups.pretty_inspect }"
+  puts "Required groups in ldap:"
+  groups.sort.each { |cn, displayname| puts " #{ cn } : #{ displayname }" }
 ensure
   close_session session_id if session_id
   conn.close if conn
