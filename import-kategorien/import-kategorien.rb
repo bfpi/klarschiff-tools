@@ -84,7 +84,7 @@ end
 
 class String
   def sanitize_ldap
-    self.gsub(/[ \-.,\/]/, '_').
+    self.gsub(/[ ,\/]/, '_').
       gsub(/ä/, 'ae').gsub(/Ä/, 'Ae').
       gsub(/ö/, 'oe').gsub(/Ö/, 'Oe').
       gsub(/ü/, 'ue').gsub(/Ü/, 'Ue').
