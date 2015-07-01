@@ -121,7 +121,7 @@ def categories_from_csv(filename, session_id)
 
       if type.present?
         # Hauptkategorie
-        categories << Category.new(session_id: session_id, name: name, type: type)
+        categories << Category.new(session_id: session_id, name: name, type: type, detail: detail)
       else
         # Unterkategorie
         categories.last.subcategories << Category.new(
@@ -159,10 +159,10 @@ def db_conn(conf)
       SQL
     end
 
-    def conn.update_category(id, name)
-      self.exec_params <<-SQL, [id, name]
+    def conn.update_category(id, name, detail)
+      self.exec_params <<-SQL, [id, name, detail]
         UPDATE klarschiff_kategorie
-        SET geloescht = FALSE, "name" = $2
+        SET geloescht = FALSE, "name" = $2, naehere_beschreibung_notwendig = $3
         WHERE id = $1
       SQL
     end
@@ -188,19 +188,15 @@ begin
           JOIN klarschiff_kategorie hk ON k.parent = hk.id
         WHERE hk.typ ILIKE $1 AND TRIM(hk."name") ILIKE $2 and TRIM(k."name") ILIKE $3
         SQL
-        conn.update_category res['parent'], cat.name
-        conn.exec_params <<-SQL, [res['id'], sub.name, sub.detail]
-          UPDATE klarschiff_kategorie 
-          SET geloescht = FALSE, "name" = $2, naehere_beschreibung_notwendig = $3
-          WHERE id = $1
-        SQL
+        conn.update_category res['parent'], cat.name, cat.detail
+        conn.update_category res['id'], sub.name, sub.detail
         conn.create_category_responsibility res['id'], sub.responsible_key
       elsif res = conn.exec_params(<<-SQL, [cat.type, cat.name]).first
         SELECT id
         FROM klarschiff_kategorie
         WHERE parent IS NULL AND typ ILIKE $1 AND TRIM("name") ILIKE $2
         SQL
-        conn.update_category res['id'], cat.name
+        conn.update_category res['id'], cat.name, cat.detail
         sub_id = conn.get_new_id
         conn.create_subcategory sub_id, res['id'], sub.name, sub.detail
         conn.create_category_responsibility sub_id, sub.responsible_key
