@@ -135,35 +135,50 @@ end
 def db_conn(conf)
   PG.connect(conf).tap do |conn|
     def conn.get_new_id
-      self.exec("SELECT COALESCE(MAX(id), 0) + 1 AS id FROM klarschiff_kategorie").first['id']
+      exec("SELECT COALESCE(MAX(id), 0) + 1 AS id FROM klarschiff_kategorie").first['id']
     end
 
     def conn.create_category(id, type, name, detail)
-      self.exec_params <<-SQL, [id, type.downcase, name, detail]
+      exec_params <<-SQL, [id, type.downcase, name, detail]
         INSERT INTO klarschiff_kategorie(id, typ, "name", naehere_beschreibung_notwendig)
         VALUES($1, $2, $3, $4)
       SQL
     end
 
     def conn.create_subcategory(id, parent, name, detail)
-      self.exec_params <<-SQL, [id, parent, name, detail]
+      exec_params <<-SQL, [id, parent, name, detail]
         INSERT INTO klarschiff_kategorie(id, parent, "name", naehere_beschreibung_notwendig)
         VALUES($1, $2, $3, $4)
       SQL
     end
 
-    def conn.create_category_responsibility(id, responsible)
-      self.exec_params <<-SQL, [id, responsible]
-        INSERT INTO klarschiff_kategorie_initial_zustaendigkeiten(kategorie, initial_zustaendigkeiten)
-        VALUES($1, $2)
-      SQL
-    end
-
     def conn.update_category(id, name, detail)
-      self.exec_params <<-SQL, [id, name, detail]
+      exec_params <<-SQL, [id, name, detail]
         UPDATE klarschiff_kategorie
         SET geloescht = FALSE, "name" = $2, naehere_beschreibung_notwendig = $3
         WHERE id = $1
+      SQL
+    end
+
+    def conn.set_category_responsibility(id, responsible)
+      if category_responsibility_exists?(id)
+        exec_params <<-SQL, [id, responsible]
+          UPDATE klarschiff_kategorie_initial_zustaendigkeiten
+          SET initial_zustaendigkeiten = $2
+          WHERE kategorie = $1
+        SQL
+      else
+        exec_params <<-SQL, [id, responsible]
+          INSERT INTO klarschiff_kategorie_initial_zustaendigkeiten(kategorie, initial_zustaendigkeiten)
+          VALUES($1, $2)
+        SQL
+      end
+    end
+
+    private
+    def conn.category_responsibility_exists?(id)
+      exec_params(<<-SQL, [id]).first.present?
+        SELECT kategorie FROM klarschiff_kategorie_initial_zustaendigkeiten WHERE kategorie = $1
       SQL
     end
   end
@@ -176,10 +191,7 @@ begin
   groups = {}
 
   conn = db_conn(config['db']['connection'])
-  conn.exec <<-SQL
-    UPDATE klarschiff_kategorie SET geloescht = TRUE;
-    DELETE FROM klarschiff_kategorie_initial_zustaendigkeiten
-  SQL
+  conn.exec "UPDATE klarschiff_kategorie SET geloescht = TRUE"
   categories_from_csv(filename, session_id).each do |cat|
     cat.subcategories.each do |sub|
       if res = conn.exec_params(<<-SQL, [cat.type, cat.name, sub.name]).first
@@ -190,7 +202,7 @@ begin
         SQL
         conn.update_category res['parent'], cat.name, cat.detail
         conn.update_category res['id'], sub.name, sub.detail
-        conn.create_category_responsibility res['id'], sub.responsible_key
+        conn.set_category_responsibility res['id'], sub.responsible_key
       elsif res = conn.exec_params(<<-SQL, [cat.type, cat.name]).first
         SELECT id
         FROM klarschiff_kategorie
@@ -199,13 +211,13 @@ begin
         conn.update_category res['id'], cat.name, cat.detail
         sub_id = conn.get_new_id
         conn.create_subcategory sub_id, res['id'], sub.name, sub.detail
-        conn.create_category_responsibility sub_id, sub.responsible_key
+        conn.set_category_responsibility sub_id, sub.responsible_key
       else
         id = conn.get_new_id
         conn.create_category id, cat.type, cat.name, cat.detail
         sub_id = conn.get_new_id
         conn.create_subcategory sub_id, id, sub.name, sub.detail
-        conn.create_category_responsibility sub_id, sub.responsible_key
+        conn.set_category_responsibility sub_id, sub.responsible_key
       end
       if (val = groups[sub.responsible_key]) && val != sub.responsible
         raise "Different responsibilities for same key: #{ sub.responsible_key }: " \
