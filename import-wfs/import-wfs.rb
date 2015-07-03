@@ -23,7 +23,7 @@ def load_from_wfs(wfs_config)
   filter << "</OR>" if schluessel.length > 1 
   filter << "</Filter>"
   require 'open-uri'
-  open("#{ url }?SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&TYPENAME=#{ typename }&" +
+  open("#{ url }?SERVICE=WFS&VERSION=1.1.0&SRSNAME=EPSG:25833&REQUEST=GetFeature&TYPENAME=#{ typename }&" +
        "maxFeatures=#{ max }&filter=#{ URI::encode(filter) }") { |f|
     f.read
   }
