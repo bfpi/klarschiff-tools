@@ -101,12 +101,36 @@ class Category
     options.each { |attr, value| send :"#{ attr }=", value }
   end
 
-  def responsible
-    @responsible ||= anliegen ? get_ou(session_id, anliegen).to_s.strip : responsible_name
+  def responsibles
+    @responsibles ||= 
+      if anliegen 
+        anliegen.split(/\| ?/).map { |v| 
+          a, context = v.split(/; ?/, 2)
+          Responsible.new get_ou(session_id, a), context
+        }
+      else
+        responsible_name.split(/\| ?/).map { |v| Responsible.new *v.split(/; ?/, 2) }
+      end
+  end
+end
+
+class Responsible
+  attr_accessor :name, :context
+
+  def initialize(name, ctx = nil)
+    self.name = name.to_s.strip
+    if ctx
+      raise "Invalid context '#{ ctx }' for responsible '#{ name }' defined." if ctx =~ /;/
+      self.context = ctx
+    end
   end
 
-  def responsible_key
-    responsible.downcase.sanitize_ldap if responsible
+  def key
+    name.downcase.sanitize_ldap
+  end
+
+  def key_with_context
+    context ? "#{ key };#{ context }" : key
   end
 end
 
@@ -160,26 +184,17 @@ def db_conn(conf)
       SQL
     end
 
-    def conn.set_category_responsibility(id, responsible)
-      if category_responsibility_exists?(id)
-        exec_params <<-SQL, [id, responsible]
-          UPDATE klarschiff_kategorie_initial_zustaendigkeiten
-          SET initial_zustaendigkeiten = $2
-          WHERE kategorie = $1
-        SQL
-      else
-        exec_params <<-SQL, [id, responsible]
+    def conn.set_category_responsibilities(id, responsibles)
+      exec_params <<-SQL, [id]
+        DELETE FROM klarschiff_kategorie_initial_zustaendigkeiten
+        WHERE kategorie = $1
+      SQL
+      responsibles.each do |responsible|
+        exec_params <<-SQL, [id, responsible.key_with_context]
           INSERT INTO klarschiff_kategorie_initial_zustaendigkeiten(kategorie, initial_zustaendigkeiten)
           VALUES($1, $2)
         SQL
       end
-    end
-
-    private
-    def conn.category_responsibility_exists?(id)
-      exec_params(<<-SQL, [id]).first.present?
-        SELECT kategorie FROM klarschiff_kategorie_initial_zustaendigkeiten WHERE kategorie = $1
-      SQL
     end
   end
 end
@@ -202,7 +217,7 @@ begin
         SQL
         conn.update_category res['parent'], cat.name, cat.detail
         conn.update_category res['id'], sub.name, sub.detail
-        conn.set_category_responsibility res['id'], sub.responsible_key
+        conn.set_category_responsibilities res['id'], sub.responsibles
       elsif res = conn.exec_params(<<-SQL, [cat.type, cat.name]).first
         SELECT id
         FROM klarschiff_kategorie
@@ -211,21 +226,23 @@ begin
         conn.update_category res['id'], cat.name, cat.detail
         sub_id = conn.get_new_id
         conn.create_subcategory sub_id, res['id'], sub.name, sub.detail
-        conn.set_category_responsibility sub_id, sub.responsible_key
+        conn.set_category_responsibilities sub_id, sub.responsibles
       else
         id = conn.get_new_id
         conn.create_category id, cat.type, cat.name, cat.detail
         sub_id = conn.get_new_id
         conn.create_subcategory sub_id, id, sub.name, sub.detail
-        conn.set_category_responsibility sub_id, sub.responsible_key
+        conn.set_category_responsibilities sub_id, sub.responsibles
       end
-      if (val = groups[sub.responsible_key]) && val != sub.responsible
-        raise "Different responsibilities for same key: #{ sub.responsible_key }: " \
-          "#{ groups[sub.responsible_key] }, #{ sub.responsible }"
-      elsif sub.responsible_key.blank?
-        raise "Empty responsibility key for category: #{ cat.name } => #{ sub.name }"
-      else
-        groups[sub.responsible_key] = sub.responsible
+      sub.responsibles.each do |responsible|
+        if (val = groups[responsible.key]) && val != responsible.name
+          raise "Different responsibilities for same key: #{ responsible.key }: " \
+            "#{ groups[responsible.key] }, #{ responsible.name }"
+        elsif responsible.key.blank?
+          raise "Empty responsibility key for category: #{ cat.name } => #{ sub.name }"
+        else
+          groups[responsible.key] = responsible.name
+        end
       end
     end
   end
