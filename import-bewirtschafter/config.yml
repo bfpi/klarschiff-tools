@@ -1,0 +1,22 @@
+wfs:
+  url: http://www.geodaten-mv.de/dienste/dvg_laiv_wfs
+  max: 500
+  zugehoerig:
+    #- 13003 # Kreis: HRO
+    #- 13004 # Kreis: SN
+    #- 13071 # Kreis: LK MSP
+    - 13072 # Kreis: LK LRO
+    #- 13073 # Kreis: LK VR
+    #- 13074 # Kreis: LK NWM
+    #- 13075 # Kreis: LK VG
+    #- 13076 # Kreis: LK LUP
+db:
+  connection:
+    # Parameter siehe http://deveiate.org/code/pg/PG/Connection.html#method-c-new
+    dbname: zufi
+    port: 5434
+  table: bewirtschaftung
+  columns:
+    geom: geom
+    key: schluessel
+    name: name
