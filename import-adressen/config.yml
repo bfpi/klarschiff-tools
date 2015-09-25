@@ -1,1 +1,3 @@
-database: standortsuche
+db:
+  # Parameter siehe http://deveiate.org/code/pg/PG/Connection.html#method-c-new
+  dbname: standortsuche

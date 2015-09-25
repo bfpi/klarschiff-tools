@@ -10,7 +10,10 @@ raise "Usage: #{ $0 } input/adressen.txt" unless File.exists?(input)
 
 config = load_config
 
-sql = <<SQL
+require 'pg'
+
+PG.connect(config['db']).tap do |conn|
+  conn.exec <<SQL
 DROP TABLE IF EXISTS import_adressen;
 
 CREATE TABLE import_adressen (
@@ -58,6 +61,4 @@ UPDATE strasse SET geom = sub.geom FROM (
 
 DROP TABLE IF EXISTS import_adressen;
 SQL
-
-puts `psql #{ config["database"] } <<SQL
-#{ sql }`
+end
