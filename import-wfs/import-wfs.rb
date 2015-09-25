@@ -53,7 +53,9 @@ def update_db(gml, db_config)
   raise "wfs:column missing" if column.nil? || column.empty?
   require 'pg'
   conn = PG.connect(db_config["connection"])
-  conn.exec("UPDATE #{ table } SET #{ column } = ST_GeomFromGML('#{ gml.gsub(/'/, "\"") }')")
+  conn.exec "DELETE FROM #{ table }"
+  conn.exec "TRUNCATE #{ table } RESTART IDENTITY"
+  conn.exec "INSERT INTO #{ table } (id, #{ column }) VALUES(1, ST_GeomFromGML('#{ gml.gsub(/'/, "\"") }'))"
 end
 
 config = load_config
