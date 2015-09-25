@@ -1,11 +1,12 @@
-shp_column_name: bezeich
-import_table_name: import_stadtteile
+shp_column_name: BEZEICH
 targets:
   -
-    database: standortsuche
+    db:
+      dbname: standortsuche
     table_name: ortsteil
     column_name: geom
   -
-    database: klarschiff_backend
+    db:
+      dbname: klarschiff_backend
     table_name: klarschiff_stadtteil_grenze
     column_name: grenze
